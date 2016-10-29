@@ -5,21 +5,24 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <string.h>
 
 #include "packets.h"
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 
 int main(int argc, char **argv) {
+    // libpcap stuff
     pcap_t *handle;         /* Session handle */
     char *dev;          /* The device to sniff on */
     char errbuf[PCAP_ERRBUF_SIZE];  /* Error string */
     struct bpf_program fp;      /* The compiled filter */
-    char filter_exp[] = "tcp";  /* The filter expression */
     bpf_u_int32 mask;       /* Our netmask */
     bpf_u_int32 net;        /* Our IP */
     struct pcap_pkthdr header;  /* The header that pcap gives us */
     const u_char *packet;       /* The actual packet */
+
+    char filter_exp[64] = "tcp and dst port 80 and (dst host 127.0.0.1 or dst host ";  /* The filter expression */
 
     /* Define the device */
     dev = pcap_lookupdev(errbuf);
@@ -27,12 +30,19 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Couldn't find default device: %s\n", errbuf);
         return(2);
     }
+    dev ="lo";
     /* Find the properties for the device */
     if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1) {
         fprintf(stderr, "Couldn't get netmask for device %s: %s\n", dev, errbuf);
         net = 0;
         mask = 0;
     }
+
+    struct in_addr toConvert;
+    toConvert.s_addr = net;
+    strcat(filter_exp, inet_ntoa(toConvert));
+    strcat(filter_exp, ")");
+
     /* Open the session in promiscuous mode */
     handle = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuf);
     if (handle == NULL) {
@@ -63,7 +73,6 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
     // header->len len of total packet
 
     // packet points to the entire packet, this callback triggers whenever we get a header
-
 
     const struct sniff_ethernet *ethernet; /* The ethernet header */
     const struct sniff_ip *ip; /* The IP header */
@@ -97,6 +106,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
     printf("src port: %u\n", tcp->th_sport);
     printf("dst port: %u\n", tcp->th_dport);
     printf("sequence: %u\n", tcp->th_seq);
-    printf("urgent: %u\n", tcp->th_urp);
+    printf("ack: %u\n", tcp->th_ack);
+    printf("offset: %u\n", tcp->th_offx2);
 
 }
