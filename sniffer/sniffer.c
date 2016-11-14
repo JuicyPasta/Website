@@ -6,12 +6,17 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <hiredis.h>
 
 #include "packets.h"
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
+void initRedis(); 
 
 int main(int argc, char **argv) {
+
+    initRedis();
+
     // libpcap stuff
     pcap_t *handle;         /* Session handle */
     char *dev;          /* The device to sniff on */
@@ -65,6 +70,38 @@ int main(int argc, char **argv) {
     pcap_close(handle);
 
     return 0;
+}
+
+void initRedis() {
+    unsigned int j;
+    redisContext *c;
+    redisReply *reply;
+    const char *hostname = (argc > 1) ? argv[1] : "127.0.0.1";
+    int port = (argc > 2) ? atoi(argv[2]) : 6379;
+
+    struct timeval timeout = { 1, 500000 }; // 1.5 seconds
+    c = redisConnectWithTimeout(hostname, port, timeout);
+    if (c == NULL || c->err) {
+        if (c) {
+            printf("Connection error: %s\n", c->errstr);
+            redisFree(c);
+        } else {
+            printf("Connection error: can't allocate redis context\n");
+        }
+        exit(1);
+    }
+
+    printf("REDIS REPLY");
+
+    /* PING server */
+    reply = redisCommand(c,"PING");
+    printf("PING: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    /* Set a key */
+    reply = redisCommand(c,"SET %s %s", "foo", "hello world");
+    printf("SET: %s\n", reply->str);
+    freeReplyObject(reply);
 }
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {

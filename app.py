@@ -3,10 +3,9 @@ from flask import render_template
 from flask import request
 
 app = Flask(__name__, instance_relative_config=True)
-app.config.from_object('config')
-app.config.from_pyfile('config.py')
+#app.config.from_pyfile('config.py')
 
-debug_level = app.config['DEBUG']
+#debug_level = app.config['DEBUG']
 
 
 @app.route('/', methods=['GET'])
